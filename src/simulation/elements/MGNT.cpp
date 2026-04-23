@@ -124,7 +124,11 @@ static int update(UPDATE_FUNC_ARGS)
 				float mySpeed = sqrtf(parts[i].vx * parts[i].vx + parts[i].vy * parts[i].vy);
 				if (mySpeed > 2.0f && sim->rng.chance(1, 20))
 				{
-					sim->create_part(ID(r), x + rx, y + ry, PT_SPRK);
+					// Use create_part with the existing ID to change type, but set ctype to preserve the conductor
+					int sparkId = ID(r);
+					sim->part_change_type(sparkId, x + rx, y + ry, PT_SPRK);
+					parts[sparkId].ctype = rt;
+					parts[sparkId].life = 4; // Typical spark life
 				}
 			}
 		}

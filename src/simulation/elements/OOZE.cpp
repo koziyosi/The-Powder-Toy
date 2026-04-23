@@ -63,6 +63,8 @@ static int update(UPDATE_FUNC_ARGS)
 		{
 			if (!rx && !ry)
 				continue;
+			if (!InBounds(x+rx, y+ry))
+				continue;
 			auto r = pmap[y+ry][x+rx];
 			if (!r)
 				continue;
@@ -117,6 +119,8 @@ static int update(UPDATE_FUNC_ARGS)
 			for (int ry = -1; ry <= 1; ry++)
 			{
 				if (!rx && !ry)
+					continue;
+				if (!InBounds(x+rx, y+ry))
 					continue;
 				auto r = pmap[y+ry][x+rx];
 				if (!r)
