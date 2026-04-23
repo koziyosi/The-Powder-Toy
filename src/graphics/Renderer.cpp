@@ -18,6 +18,30 @@
 void Renderer::RenderBackground()
 {
 	draw_air();
+
+	// Draw procedural nebula background if not in a special air mode
+	if (!(displayMode & DISPLAY_AIR))
+	{
+		static float offset = 0;
+		offset += 0.005f;
+		for (int y = 0; y < YRES; y += 4)
+		{
+			for (int x = 0; x < XRES; x += 4)
+			{
+				// Simple noise-like pattern using sin/cos
+				float n = sinf(x * 0.01f + offset) * cosf(y * 0.01f - offset * 0.5f);
+				if (n > 0.5f)
+				{
+					RGB nebula = 0x100820_rgb; // Deep purple
+					nebula.Red = uint8_t(nebula.Red * n);
+					nebula.Blue = uint8_t(nebula.Blue * n);
+					for (int dy = 0; dy < 4; ++dy)
+						for (int dx = 0; dx < 4; ++dx)
+							video[{x + dx, y + dy}] = nebula.Pack();
+				}
+			}
+		}
+	}
 }
 
 void Renderer::RenderSimulation()
@@ -43,6 +67,11 @@ void Renderer::RenderSimulation()
 		warpVideo = video;
 		std::fill_n(video.data(), WINDOWW * YRES, 0);
 		render_gravlensing(warpVideo);
+	}
+
+	if (displayMode & DISPLAY_GLOW)
+	{
+		render_bloom();
 	}
 }
 
@@ -73,6 +102,79 @@ void Renderer::render_gravlensing(const RendererFrame &source)
 				std::min(0xFF, RGB::Unpack(source[rp]).Red   + v.Red  ),
 				std::min(0xFF, RGB::Unpack(source[gp]).Green + v.Green),
 				std::min(0xFF, RGB::Unpack(source[bp]).Blue  + v.Blue )
+			).Pack();
+		}
+	}
+}
+
+void Renderer::render_bloom()
+{
+	// Simple software bloom: downsample, blur, and additive blend
+	// Using a 4x4 downsample for performance
+	constexpr int ds = 4;
+	const int bw = XRES / ds;
+	const int bh = YRES / ds;
+	static std::vector<pixel> bloomBuffer;
+	if (bloomBuffer.size() != (size_t)(bw * bh)) bloomBuffer.resize(bw * bh);
+
+	// 1. Downsample and Threshold
+	for (int y = 0; y < bh; ++y)
+	{
+		for (int x = 0; x < bw; ++x)
+		{
+			RGB maxColor(0, 0, 0);
+			// Find brightest pixel in the block
+			for (int dy = 0; dy < ds; ++dy)
+			{
+				for (int dx = 0; dx < ds; ++dx)
+				{
+					RGB c = RGB::Unpack(video[{x * ds + dx, y * ds + dy}]);
+					if (c.Red + c.Green + c.Blue > maxColor.Red + maxColor.Green + maxColor.Blue)
+						maxColor = c;
+				}
+			}
+			// Threshold: only bright pixels glow
+			if (maxColor.Red + maxColor.Green + maxColor.Blue < 300)
+				bloomBuffer[y * bw + x] = 0;
+			else
+				bloomBuffer[y * bw + x] = maxColor.Decay().Pack(); // Dim it down
+		}
+	}
+
+	// 2. Simple Box Blur (horizontal then vertical)
+	static std::vector<pixel> blurBuffer;
+	if (blurBuffer.size() != (size_t)(bw * bh)) blurBuffer.resize(bw * bh);
+
+	for (int y = 0; y < bh; ++y)
+	{
+		for (int x = 0; x < bw; ++x)
+		{
+			int r = 0, g = 0, b = 0, count = 0;
+			for (int dx = -2; dx <= 2; ++dx)
+			{
+				int nx = x + dx;
+				if (nx >= 0 && nx < bw)
+				{
+					RGB c = RGB::Unpack(bloomBuffer[y * bw + nx]);
+					r += c.Red; g += c.Green; b += c.Blue;
+					count++;
+				}
+			}
+			blurBuffer[y * bw + x] = RGB(r / count, g / count, b / count).Pack();
+		}
+	}
+
+	// 3. Additive blend back to main video
+	for (int y = 0; y < YRES; ++y)
+	{
+		for (int x = 0; x < XRES; ++x)
+		{
+			RGB base = RGB::Unpack(video[{x, y}]);
+			RGB glow = RGB::Unpack(blurBuffer[(y / ds) * bw + (x / ds)]);
+			video[{x, y}] = RGB(
+				std::min(255, base.Red + glow.Red),
+				std::min(255, base.Green + glow.Green),
+				std::min(255, base.Blue + glow.Blue)
 			).Pack();
 		}
 	}
@@ -903,22 +1005,47 @@ void Renderer::draw_grav()
 	{
 		return;
 	}
-	for (auto p : CELLS.OriginRect())
+
+	// Space-Time Grid Visualization
+	constexpr int step = 32;
+	// Draw horizontal lines
+	for (int y = 0; y < YRES; y += step)
 	{
-		auto gx = sim->gravOut.forceX[p];
-		auto gy = sim->gravOut.forceY[p];
-		auto agx = std::abs(gx);
-		auto agy = std::abs(gy);
-		if (agx <= 0.001f && agy <= 0.001f)
+		for (int x = 0; x < XRES; x += 4) // Draw in segments
 		{
-			continue;
+			// Calculate warped position
+			auto warp = [this](int px, int py) -> Vec2<int> {
+				float gx = 0, gy = 0;
+				// Sample gravity at this point (using CELLS grid for performance)
+				int cx = std::clamp(px / CELL, 0, XCELLS - 1);
+				int cy = std::clamp(py / CELL, 0, YCELLS - 1);
+				gx = sim->gravOut.forceX[{cx, cy}];
+				gy = sim->gravOut.forceY[{cx, cy}];
+				return { int(px + gx * 20.0f), int(py + gy * 20.0f) };
+			};
+
+			auto p1 = warp(x, y);
+			auto p2 = warp(x + 4, y);
+			if (InBounds(p1.X, p1.Y) && InBounds(p2.X, p2.Y))
+				BlendLine(p1, p2, 0x004080_rgb .WithAlpha(80));
 		}
-		auto np = Vec2{ float(p.X * CELL), float(p.Y * CELL) };
-		auto dist = agx + agy;
-		for (auto i = 0; i < 4; ++i)
+	}
+	// Draw vertical lines
+	for (int x = 0; x < XRES; x += step)
+	{
+		for (int y = 0; y < YRES; y += 4)
 		{
-			np -= Vec2{ gx * 0.5f, gy * 0.5f };
-			AddPixel({ int(np.X + 0.5f), int(np.Y + 0.5f) }, 0xFFFFFF_rgb .WithAlpha(int(dist * 20.0f)));
+			auto warp = [this](int px, int py) -> Vec2<int> {
+				int cx = std::clamp(px / CELL, 0, XCELLS - 1);
+				int cy = std::clamp(py / CELL, 0, YCELLS - 1);
+				float gx = sim->gravOut.forceX[{cx, cy}];
+				float gy = sim->gravOut.forceY[{cx, cy}];
+				return { int(px + gx * 20.0f), int(py + gy * 20.0f) };
+			};
+			auto p1 = warp(x, y);
+			auto p2 = warp(x, y + 4);
+			if (InBounds(p1.X, p1.Y) && InBounds(p2.X, p2.Y))
+				BlendLine(p1, p2, 0x004080_rgb .WithAlpha(80));
 		}
 	}
 }

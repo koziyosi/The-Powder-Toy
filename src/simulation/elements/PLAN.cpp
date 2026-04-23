@@ -86,7 +86,7 @@ static int update(UPDATE_FUNC_ARGS)
 			if (r)
 			{
 				int rt = TYP(r);
-				if (rt == PT_WTR || rt == PT_CRST)
+				if (rt == PT_WATR || rt == PT_CRST)
 				{
 					if (parts[i].tmp < 100) parts[i].tmp++;
 				}

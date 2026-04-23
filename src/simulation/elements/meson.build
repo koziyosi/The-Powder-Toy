@@ -197,6 +197,11 @@ simulation_elem_names = [
 	'SEED',
 	'MGNT',
 	'OOZE',
+	'STRS',
+	'PLAN',
+	'NSTN',
+	'GALA',
+	'CRST',
 ]
 
 simulation_elem_src = []
