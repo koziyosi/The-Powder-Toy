@@ -195,6 +195,8 @@ simulation_elem_names = [
 	'RSSS',
 	'BASE',
 	'SEED',
+	'MGNT',
+	'OOZE',
 ]
 
 simulation_elem_src = []

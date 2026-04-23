@@ -30,7 +30,7 @@ void Element::Element_WATR()
 
 	DefaultProperties.temp = R_TEMP - 2.0f + 273.15f;
 	HeatConduct = 29;
-	Description = "Water. Conducts electricity, freezes, and extinguishes fires.";
+	Description = "Water. Conducts electricity, freezes, extinguishes fires. Has surface tension.";
 
 	Properties = TYPE_LIQUID | PROP_CONDUCTS | PROP_LIFE_DEC | PROP_NEUTPASS | PROP_PHOTPASS;
 
@@ -93,5 +93,60 @@ static int update(UPDATE_FUNC_ARGS)
 			}
 		}
 	}
+	// Surface tension: cohesive force at liquid-air boundary
+	// Count empty neighbors to detect if this particle is at the surface
+	int emptyNeighbors = 0;
+	for (int sx = -1; sx <= 1; sx++)
+		for (int sy = -1; sy <= 1; sy++)
+		{
+			if (!sx && !sy)
+				continue;
+			if (!InBounds(x+sx, y+sy))
+				continue;
+			if (!pmap[y+sy][x+sx])
+				emptyNeighbors++;
+		}
+
+	// Only apply surface tension to particles at the surface (next to air)
+	if (emptyNeighbors > 0 && emptyNeighbors < 6)
+	{
+		float cohX = 0.0f, cohY = 0.0f;
+		int waterNeighbors = 0;
+
+		for (int sx = -2; sx <= 2; sx++)
+		{
+			for (int sy = -2; sy <= 2; sy++)
+			{
+				if (!sx && !sy)
+					continue;
+				if (!InBounds(x+sx, y+sy))
+					continue;
+				auto sr = pmap[y+sy][x+sx];
+				if (sr && TYP(sr) == PT_WATR)
+				{
+					// Pull toward other water particles (cohesion)
+					float dx = parts[ID(sr)].x - parts[i].x;
+					float dy = parts[ID(sr)].y - parts[i].y;
+					float d2 = dx * dx + dy * dy;
+					if (d2 > 0.5f && d2 < 9.0f)
+					{
+						float d = sqrtf(d2);
+						cohX += dx / d;
+						cohY += dy / d;
+						waterNeighbors++;
+					}
+				}
+			}
+		}
+
+		if (waterNeighbors > 0)
+		{
+			// Surface tension strength: subtle but noticeable
+			float tensionStrength = 0.03f;
+			parts[i].vx += cohX * tensionStrength;
+			parts[i].vy += cohY * tensionStrength;
+		}
+	}
+
 	return 0;
 }
