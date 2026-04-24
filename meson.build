@@ -636,3 +636,24 @@ if host_platform == 'emscripten'
 		depends: powder_exe,
 	)
 endif
+
+if get_option('build_planet_simulator')
+	if host_platform in [ 'android', 'emscripten' ]
+		message('planet simulator does not target @0@'.format(host_platform))
+	else
+	planet_deps = project_deps + [
+		sdl2_dep
+	]
+	executable(
+		'planet_simulator',
+		sources: [ 'src/planet_simulator/PlanetSimulator.cpp' ],
+		include_directories: project_inc,
+		cpp_args: project_cpp_args,
+		link_args: project_link_args,
+		dependencies: planet_deps,
+		export_dynamic: project_export_dynamic,
+		link_depends: copied_dlls,
+		override_options: target_options,
+	)
+	endif
+endif

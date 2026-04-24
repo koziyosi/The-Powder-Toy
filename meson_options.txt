@@ -299,3 +299,9 @@ option(
 	value: false,
 	description: 'Run clang-tidy to lint programming issues'
 )
+option(
+	'build_planet_simulator',
+	type: 'boolean',
+	value: true,
+	description: 'Build the planet simulator'
+)
