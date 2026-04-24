@@ -52,6 +52,7 @@ class Renderer : private RendererSettings, public RasterDrawMethods<Renderer>
 	void DrawWalls();
 	void DrawSigns();
 	void render_gravlensing(const RendererFrame &source);
+	void render_bloom();
 	void render_fire();
 	void prepare_alpha(int size, float intensity);
 	void render_parts();

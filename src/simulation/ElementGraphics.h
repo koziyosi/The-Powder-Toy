@@ -54,3 +54,4 @@ constexpr auto DISPLAY_WARP    = UINT32_C(0x00000010);
 constexpr auto DISPLAY_PERS    = UINT32_C(0x00000020);
 constexpr auto DISPLAY_EFFE    = UINT32_C(0x00000040);
 constexpr auto DISPLAY_AIRW    = UINT32_C(0x00000080);
+constexpr auto DISPLAY_GLOW    = UINT32_C(0x00000100);
