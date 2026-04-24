@@ -13,7 +13,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <memory>
 
 int main(int argc, char *argv[])
 {
@@ -44,9 +43,9 @@ int main(int argc, char *argv[])
 			throw e;
 	}
 
-	auto sim = std::make_unique<Simulation>();
-	auto ren = std::make_unique<Renderer>();
-	ren->sim = sim.get();
+	Simulation * sim = new Simulation();
+	Renderer * ren = new Renderer();
+	ren->sim = sim;
 
 	if (gameSave)
 	{

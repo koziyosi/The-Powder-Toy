@@ -34,10 +34,6 @@ namespace Probability
 		// Note: maxK must be small, otherwise the method used in this class is inefficient. (n and p can be any valid value)
 		SmallKBinomialGenerator(unsigned int n, float p, unsigned int maxK_);
 		~SmallKBinomialGenerator();
-
-		SmallKBinomialGenerator(const SmallKBinomialGenerator&) = delete;
-		SmallKBinomialGenerator& operator=(const SmallKBinomialGenerator&) = delete;
-
 		unsigned int calc(float randFloat);
 	};
 }
