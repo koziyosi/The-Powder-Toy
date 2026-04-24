@@ -202,6 +202,8 @@ simulation_elem_names = [
 	'NSTN',
 	'GALA',
 	'CRST',
+	'SPKR',
+	'MICR',
 ]
 
 simulation_elem_src = []
